@@ -4,6 +4,7 @@
   "holonomicMode": true,
   "pathFolders": [
     "Coral_To_Reef",
+    "Out_of_the_way",
     "Reef_To_Coral",
     "Start",
     "Tests"
