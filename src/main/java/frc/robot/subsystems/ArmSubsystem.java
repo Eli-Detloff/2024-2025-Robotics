@@ -5,16 +5,18 @@ import static frc.robot.Constants.*;
 import com.ctre.phoenix6.StatusCode;
 import com.ctre.phoenix6.configs.CANcoderConfiguration;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
-import com.ctre.phoenix6.controls.MotionMagicVoltage;
+import com.ctre.phoenix6.controls.MotionMagicExpoVoltage;
 import com.ctre.phoenix6.controls.NeutralOut;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.FeedbackSensorSourceValue;
-import com.ctre.phoenix6.signals.SensorDirectionValue;
+import com.ctre.phoenix6.signals.GravityTypeValue;
+import com.ctre.phoenix6.signals.StaticFeedforwardSignValue;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.units.Units;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.Constants.ArmConstants;
 
 public class ArmSubsystem extends SubsystemBase {
 
@@ -22,8 +24,8 @@ public class ArmSubsystem extends SubsystemBase {
   private final CANcoder m_armEncoder =
       new CANcoder(ArmConstants.ARMENCODER_ID, ArmConstants.CANBUS);
 
-  private final MotionMagicVoltage m_armRequest = new MotionMagicVoltage(0).withSlot(0);
-  // private final MotionMagicExpoVoltage m_armRequest = new MotionMagicVoltage(0).withSlot(0);
+  // private final MotionMagicVoltage m_armRequest = new MotionMagicVoltage(0).withSlot(0);
+  private final MotionMagicExpoVoltage m_armRequest = new MotionMagicExpoVoltage(0).withSlot(0);
   private final NeutralOut m_brake = new NeutralOut();
 
   private double armTargetPosition = 0;
@@ -50,6 +52,9 @@ public class ArmSubsystem extends SubsystemBase {
     configs.Slot0.kP = ArmConstants.armMotorKP;
     configs.Slot0.kI = ArmConstants.armMotorKI;
     configs.Slot0.kD = ArmConstants.armMotorKD;
+    configs.Slot0.GravityType = GravityTypeValue.Arm_Cosine;
+    configs.Slot0.StaticFeedforwardSign = StaticFeedforwardSignValue.UseVelocitySign;
+
     configs.Feedback.FeedbackRemoteSensorID = m_armEncoder.getDeviceID();
     configs.Feedback.FeedbackSensorSource = FeedbackSensorSourceValue.FusedCANcoder;
     configs.Feedback.SensorToMechanismRatio = 1.0;
@@ -75,8 +80,8 @@ public class ArmSubsystem extends SubsystemBase {
   private void initEncoderConfigs() {
     CANcoderConfiguration configs = new CANcoderConfiguration();
     configs.MagnetSensor.withAbsoluteSensorDiscontinuityPoint(Units.Rotations.of(0.5));
-    configs.MagnetSensor.SensorDirection = SensorDirectionValue.Clockwise_Positive;
-    configs.MagnetSensor.withMagnetOffset(Units.Rotations.of(-0.406));
+    configs.MagnetSensor.SensorDirection = ArmConstants.kArmEncoderDirection;
+    configs.MagnetSensor.withMagnetOffset(Units.Rotations.of(ArmConstants.kArmEncoderOffset));
 
     StatusCode status = m_armEncoder.getConfigurator().apply(configs);
     if (!status.isOK()) {

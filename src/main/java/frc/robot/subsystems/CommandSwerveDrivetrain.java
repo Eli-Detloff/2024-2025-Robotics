@@ -5,6 +5,7 @@ import static edu.wpi.first.units.Units.*;
 import com.ctre.phoenix6.SignalLogger;
 import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.swerve.SwerveDrivetrainConstants;
+import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveModuleConstants;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 import com.pathplanner.lib.auto.AutoBuilder;
@@ -15,6 +16,7 @@ import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -43,6 +45,10 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
   private static final Rotation2d kRedAlliancePerspectiveRotation = Rotation2d.k180deg;
   /* Keep track if we've ever applied the operator perspective before or not */
   private boolean m_hasAppliedOperatorPerspective = false;
+
+  private final SwerveRequest.FieldCentric driveFieldCentric = new SwerveRequest.FieldCentric();
+  private final SwerveRequest.RobotCentric driveRobotCentric = new SwerveRequest.RobotCentric();
+  private final ChassisSpeeds maxSpeed = new ChassisSpeeds(3.0, 3.0, 2.0);
 
   /** Swerve request to apply during robot-centric path following */
   private final SwerveRequest.ApplyRobotSpeeds m_pathApplyRobotSpeeds =
@@ -243,7 +249,7 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
     return m_sysIdRoutineToApply.dynamic(direction);
   }
 
-    /**
+  /**
    * Returns the current module poses.
    *
    * @return The current module poses
@@ -252,21 +258,30 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
     // Get the robot's current pose from the drivetrain state.
     Pose2d robotPose = getState().Pose;
 
-    // Compute each module's field pose by adding the module offset (rotated by the robot's rotation) to the robot's translation.
-    Pose2d frontLeftPose  = addModuleOffset(robotPose, TunerConstants.FrontLeft.LocationX, TunerConstants.FrontLeft.LocationY);
-    Pose2d frontRightPose = addModuleOffset(robotPose, TunerConstants.FrontRight.LocationX, TunerConstants.FrontRight.LocationY);
-    Pose2d backLeftPose   = addModuleOffset(robotPose, TunerConstants.BackLeft.LocationX, TunerConstants.BackLeft.LocationY);
-    Pose2d backRightPose  = addModuleOffset(robotPose, TunerConstants.BackRight.LocationX, TunerConstants.BackRight.LocationY);
+    // Compute each module's field pose by adding the module offset (rotated by the robot's
+    // rotation) to the robot's translation.
+    Pose2d frontLeftPose =
+        addModuleOffset(
+            robotPose, TunerConstants.FrontLeft.LocationX, TunerConstants.FrontLeft.LocationY);
+    Pose2d frontRightPose =
+        addModuleOffset(
+            robotPose, TunerConstants.FrontRight.LocationX, TunerConstants.FrontRight.LocationY);
+    Pose2d backLeftPose =
+        addModuleOffset(
+            robotPose, TunerConstants.BackLeft.LocationX, TunerConstants.BackLeft.LocationY);
+    Pose2d backRightPose =
+        addModuleOffset(
+            robotPose, TunerConstants.BackRight.LocationX, TunerConstants.BackRight.LocationY);
 
-    return new Pose2d[] { frontLeftPose, frontRightPose, backLeftPose, backRightPose };
+    return new Pose2d[] {frontLeftPose, frontRightPose, backLeftPose, backRightPose};
   }
 
-    /**
+  /**
    * Adds the module offset to the robot's pose.
    *
    * @param robotPose The robot's current pose
-   * @param offsetX   The x offset of the module
-   * @param offsetY   The y offset of the module
+   * @param offsetX The x offset of the module
+   * @param offsetY The y offset of the module
    * @return The new pose for the module
    */
   private Pose2d addModuleOffset(Pose2d robotPose, double offsetX, double offsetY) {
@@ -276,6 +291,34 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
     Translation2d rotatedOffset = offset.rotateBy(robotPose.getRotation());
     // Return the new pose for the module.
     return new Pose2d(robotPose.getTranslation().plus(rotatedOffset), robotPose.getRotation());
+  }
+
+  public void setMaxSpeeds(double xySpeed, double rotRate) {
+    maxSpeed.vxMetersPerSecond = xySpeed;
+    maxSpeed.vyMetersPerSecond = xySpeed;
+    maxSpeed.omegaRadiansPerSecond = rotRate;
+  }
+
+  public void setDriveControl(double x, double y, double rot, boolean relative) {
+    if (relative) {
+      this.setControl(
+          driveRobotCentric
+              .withDeadband(maxSpeed.vxMetersPerSecond * 0.05)
+              .withRotationalDeadband(maxSpeed.omegaRadiansPerSecond * 0.05) // Add a 5% deadband
+              .withVelocityX(x * maxSpeed.vxMetersPerSecond)
+              .withVelocityY(y * maxSpeed.vyMetersPerSecond)
+              .withRotationalRate(rot * maxSpeed.omegaRadiansPerSecond)
+              .withDriveRequestType(DriveRequestType.OpenLoopVoltage)); // Use open-loop control
+    } else {
+      this.setControl(
+          driveFieldCentric
+              .withDeadband(maxSpeed.vxMetersPerSecond * 0.05)
+              .withRotationalDeadband(maxSpeed.omegaRadiansPerSecond * 0.05) // Add a 5% deadband
+              .withVelocityX(x * maxSpeed.vxMetersPerSecond)
+              .withVelocityY(y * maxSpeed.vyMetersPerSecond)
+              .withRotationalRate(rot * maxSpeed.omegaRadiansPerSecond)
+              .withDriveRequestType(DriveRequestType.OpenLoopVoltage)); // Use open-loop control
+    }
   }
 
   @Override

@@ -10,9 +10,8 @@ import com.ctre.phoenix6.controls.NeutralOut;
 import com.ctre.phoenix6.controls.VelocityTorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.CANrange;
 import com.ctre.phoenix6.hardware.TalonFX;
-import com.ctre.phoenix6.signals.ForwardLimitSourceValue;
-import com.ctre.phoenix6.signals.ForwardLimitTypeValue;
-
+import com.ctre.phoenix6.signals.ReverseLimitSourceValue;
+import com.ctre.phoenix6.signals.ReverseLimitTypeValue;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -26,15 +25,14 @@ public class IntakeSubsystem extends SubsystemBase {
   private final CANrange m_RangeSensor =
       new CANrange(IntakeConstants.RANGESENSOR_ID, IntakeConstants.CANBUS);
 
-  // private final MotionMagicVelocityTorqueCurrentFOC m_velocityRequest = new
-  // MotionMagicVelocityTorqueCurrentFOC(0).withSlot(0);
   private final VelocityTorqueCurrentFOC m_velocityRequest =
       new VelocityTorqueCurrentFOC(0).withSlot(0);
+  // private final MotionMagicVelocityTorqueCurrentFOC m_velocityRequest =
+  //    new MotionMagicVelocityTorqueCurrentFOC(0).withSlot(0);
   private final NeutralOut m_brake = new NeutralOut();
 
   private double LintakeTargetVelocity = 0;
   private double RintakeTargetVelocity = 0;
-  // private boolean m_isIntakeIn = false;
   private boolean m_isTeleop = true;
 
   public IntakeSubsystem() {
@@ -57,10 +55,14 @@ public class IntakeSubsystem extends SubsystemBase {
     configs.Slot0.kI = IntakeConstants.intakeMotorTorqueKI;
     configs.Slot0.kD = IntakeConstants.intakeMotorTorqueKD;
 
-    configs.HardwareLimitSwitch.ForwardLimitSource = ForwardLimitSourceValue.RemoteCANrange;
-    configs.HardwareLimitSwitch.ForwardLimitType = ForwardLimitTypeValue.NormallyOpen;
-    configs.HardwareLimitSwitch.ForwardLimitRemoteSensorID = m_RangeSensor.getDeviceID();
-    configs.HardwareLimitSwitch.ForwardLimitEnable = true;
+    configs.MotionMagic.MotionMagicCruiseVelocity = IntakeConstants.MMagicCruiseVelocity;
+    configs.MotionMagic.MotionMagicAcceleration = IntakeConstants.MMagicAcceleration;
+    configs.MotionMagic.MotionMagicJerk = IntakeConstants.MMagicJerk;
+
+    configs.HardwareLimitSwitch.ReverseLimitSource = ReverseLimitSourceValue.RemoteCANrange;
+    configs.HardwareLimitSwitch.ReverseLimitType = ReverseLimitTypeValue.NormallyOpen;
+    configs.HardwareLimitSwitch.ReverseLimitRemoteSensorID = m_RangeSensor.getDeviceID();
+    configs.HardwareLimitSwitch.ReverseLimitEnable = true;
 
     StatusCode status = m_LIntakeMotor.getConfigurator().apply(configs);
     if (!status.isOK()) {
@@ -82,8 +84,7 @@ public class IntakeSubsystem extends SubsystemBase {
     config.FovParams.FOVRangeY = IntakeConstants.kRangeFOVRangeY;
     config.ProximityParams.ProximityThreshold = IntakeConstants.kProxThreshold;
     config.ProximityParams.ProximityHysteresis = IntakeConstants.kProxHysteresis;
-    config.ProximityParams.MinSignalStrengthForValidMeasurement =
-        IntakeConstants.kMinSigStrength;
+    config.ProximityParams.MinSignalStrengthForValidMeasurement = IntakeConstants.kMinSigStrength;
 
     /* User can change the configs if they want, or leave it empty for factory-default */
     StatusCode status = m_RangeSensor.getConfigurator().apply(config);
@@ -101,28 +102,20 @@ public class IntakeSubsystem extends SubsystemBase {
 
   @Override
   public void periodic() {
-    // if (m_isIntakeIn && hasCoralLoaded()) {
-    //   intakeStop();
-    // }
-
     updateSmartDashboard();
   }
 
   public void setIntakeVelocity(double Lvelocity, double Rvelocity) {
     LintakeTargetVelocity = Lvelocity * IntakeConstants.kIntakeGearRatio;
     RintakeTargetVelocity = Rvelocity * IntakeConstants.kIntakeGearRatio;
-    // m_isIntakeIn = (Lvelocity < 0.0);
 
     m_LIntakeMotor.setControl(m_velocityRequest.withVelocity(LintakeTargetVelocity));
     m_RIntakeMotor.setControl(m_velocityRequest.withVelocity(RintakeTargetVelocity));
-    // m_LIntakeMotor.setControl(m_torqueRequest.withVelocity(Lvelocity).withFeedForward(1.0));
-    // m_RIntakeMotor.setControl(m_torqueRequest.withVelocity(Rvelocity).withFeedForward(1.0));
   }
 
   public void setIntakeSpeed(double speed) {
     LintakeTargetVelocity = 0;
     RintakeTargetVelocity = 0;
-    // m_isIntakeIn = (speed < 0.0);
 
     m_LIntakeMotor.set(speed);
     m_RIntakeMotor.set(speed);
@@ -131,7 +124,6 @@ public class IntakeSubsystem extends SubsystemBase {
   public void intakeStop() {
     LintakeTargetVelocity = 0;
     RintakeTargetVelocity = 0;
-    // m_isIntakeIn = false;
 
     m_LIntakeMotor.setControl(m_brake);
     m_RIntakeMotor.setControl(m_brake);
